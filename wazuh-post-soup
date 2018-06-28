@@ -1,0 +1,105 @@
+#!/bin/bash
+
+#
+# wazuh-post-soup [init]
+#
+# To be run after an sosetup/soup process that was preceeded with a run on so-pre-update for preserving wazuh files from being damaged.
+# A patched version of soup will call this script after updates are performed but before a reboot is prompted for.
+# This script moves /var/ossec and /etc/ossec-init.conf to their SO backup names of /var/ossec-so and /etc/ossec-init.conf-so
+# and restores the preserved /var/ossec-wazuh and /etc/ossec-init.conf-wazuh back to production locations of /var/ossec and /etc/ossec-init.conf.
+# It also restarts services stopped by wazuh-pre-soup.
+#
+# If the "init" option is included, then assume /var/ossec and /etc/ossec-init.conf are from SO's legacy OSSEC and that Wazuh is to be installed.
+# In that case, /var/ossec will be moved to /var/ossec-so and /etc/ossec-init.conf will be moved to /etc/ossec-init.conf-so,
+# pushing the legacy OSSEC stuff out of the way to make room for the wazuh install.
+#
+
+# If the wrong files/directories are present, refuse to proceed, to avoid possible damage.
+if [ -d /var/ossec-so ]; then
+        echo "/var/ossec-so already exists.  Cannot move production /var/ossec to it.  Aborting..."
+        exit
+fi
+if [ -e /etc/ossec-init.conf-so ]; then
+        echo "/etc/ossec-init.conf-so already exists.  Cannot move production /etc/ossec-init.conf to it.  Aborting..."
+        exit
+fi
+
+# If the wazuh alt/temp directory or config file are missing, then abort to avoid damage, unless "init" is being used to initially budge legacy OSSEC.
+if [ "$1" != "init" ]; then
+        if [ ! -d /var/ossec-wazuh ]; then
+                echo "/var/ossec-wazuh is missing.  Cannot restore it to /var/ossec.  Aborting..."
+                exit
+        fi
+        if [ ! -e /etc/ossec-init.conf-wazuh ]; then
+                echo "/etc/ossec-init.conf-wazuh is missing.  Cannot restore it to /etc/ossec-init.conf.  Aborting..."
+                exit
+        fi
+# If /var/ossec or /etc/ossec-init.conf are missing, then abort.  Can't move what isn't there...
+else
+        if [ ! -d /var/ossec ]; then
+                echo "/var/ossec is missing.  Cannot move it.  Aborting..."
+                exit
+        fi
+        if [ ! -e /etc/ossec-init.conf ]; then
+                echo "/etc/ossec-init.conf is missing.  Cannot move it.  Aborting..."
+                exit
+        fi
+fi
+
+# Stop OSSEC and all things that depend on /var/ossec content
+# These may already be down, but make sure.
+echo "Shutting down legacy OSSEC"
+/var/ossec/bin/ossec-control stop 2> /dev/null
+
+# If there are any lingering ossec- daemons several seconds after the graceful service shutdown, kill them off now.
+sleep 5
+kill -kill `ps auxw | grep " /var/ossec/bin/ossec-" | grep -v grep | awk '{print $2}'` &> /dev/null
+
+if [[ `ps auxw | grep "/usr/bin/ossec_agent.tcl" | grep -v grep` ]]; then
+        echo "Shutting down ossec_agent (dependent on /var/ossec which is about to be moved)…"
+        nsm_sensor_ps-stop --only-ossec-agent 2> /dev/null
+fi
+
+if [ -e /etc/init.d/filebeat ]; then
+        echo "Shutting down filebeat (dependent on /var/ossec which is about to be moved)…"
+        service filebeat stop 2> /dev/null
+fi
+
+echo "Moving SO legacy OSSEC files to their alternate locations…"
+mv /var/ossec /var/ossec-so
+mv /etc/ossec-init.conf /etc/ossec-init.conf-so
+
+# Only attempt to move wazuh files back and restart services if this is not a "init" run.
+if [ "$1" != "init" ]; then
+        echo "Moving preserved Wazuh files back to their production locations…"
+        mv /var/ossec-wazuh /var/ossec
+        mv /etc/ossec-init.conf-wazuh /etc/ossec-init.conf
+
+        # Start all things back up that were shut down by so-pre-update
+        echo "Restarting Wazuh…"
+        /var/ossec/bin/ossec-control start
+
+        if [[ `grep "^OSSEC_AGENT_ENABLED=yes" /etc/nsm/securityonion.conf` ]]; then
+                echo "Shutting down ossec_agent (dependent on /var/ossec which is about to be moved)…"
+                nsm_sensor_ps-start --only-ossec-agent
+        fi
+
+        if [ -e /etc/init.d/filebeat ]; then
+                echo "Restarting filebeat..."
+                service filebeat start
+        fi
+
+        # If ntopng installed then restart it since it was probably shut down by so-pre-update to prevent interference with updates to pfring.
+        if [ -e /etc/ntopng/ntopng.start ]; then
+                echo "Restarting ntopng…"
+                service ntopng start
+        fi
+
+fi
+
+
+#
+# Patch soup if replaced with a stock version that does not call wazuh-pre-soup and wazuh-post-soup.
+#
+/usr/local/bin/wazuh-patch-soup
+

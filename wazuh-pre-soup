@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#
+# wazuh-pre-soup
+# by Kevin Branch (kevin@branchnetconsulting.com)
+#
+# Prepare a Security Onion standalone server for an sosetup install or soup update such that
+# the Wazuh manager/agent slide-in replacement of ossec-hids-server is not overwriten.
+# Also, if ntopng is running, shut it down so it does not gum up the soup process by holding onto pf_ring.
+#
+# This should be called by a patched version of soup before performing soup updates.
+# The patched version of soup will also call wazuh-post-soup after updates are complete but before a reboot would be suggested.
+#
+
+# If the wrong files/directories are present or missing, refuse to proceed, to avoid possible damage.
+if [ -d /var/ossec-wazuh ]; then
+        echo "/var/ossec-wazuh already exists.  Cannot move production /var/ossec to it."
+        exit
+fi
+if [ ! -d /var/ossec-so ]; then
+        echo "/var/ossec-so is missing.  Cannot use it to replace /var/ossec."
+        exit
+fi
+if [ -e /etc/ossec-init.conf-wazuh ]; then
+        echo "/etc/ossec-init.conf-wazuh already exists.  Cannot move production /etc/ossec-init.conf to it."
+        exit
+fi
+if [ ! -e /etc/ossec-init.conf-so ]; then
+        echo "/etc/ossec-init.conf-so is missing.  Cannot use it to replace /etc/ossec-init.conf."
+        exit
+fi
+
+# Stop wazuh and all things that depend on /var/ossec content
+echo "Shutting down Wazuh, ossec_agent, and filebeat if running…"
+/var/ossec/bin/ossec-control stop
+sleep 5
+kill -kill `ps auxw | grep " /var/ossec/bin/ossec-" | grep -v grep | awk '{print $2}'` &> /dev/null
+nsm_sensor_ps-stop --only-ossec-agent
+service filebeat stop
+
+if [[ `ps auxw | grep "\/usr\/bin\/ntopng" | grep -v grep` ]]; then
+        echo "Stopping ntopng to free up pf_ring…"
+        service ntopng stop
+        sleep 5
+fi
+
+echo "Moving wazuh files to temporary locations…"
+mv /var/ossec /var/ossec-wazuh
+mv /etc/ossec-init.conf /etc/ossec-init.conf-wazuh
+
+echo "Moving legacy Security Onion ossec-hids-server files temporarily to their stock location…"
+mv /var/ossec-so /var/ossec
+mv /etc/ossec-init.conf-so /etc/ossec-init.conf
+

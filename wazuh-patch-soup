@@ -1,0 +1,25 @@
+#
+# Patch the Security Onion soup script if it is not already patched to call wazuh-pre-soup and wazuh-post-soup as part of the soup process.
+#
+if [[ ! `grep "^# soup patched to work with Wazuh" /usr/sbin/soup` ]]; then
+        echo "Patching the soup script so it calls wazuh-pre-soup and wazuh-post-soup at the right times..."
+        sed -i '/wazuh-pre-soup/d' /usr/sbin/soup
+        sed -i '/wazuh-post-soup/d' /usr/sbin/soup
+        LINE=""
+        LINE=`grep -n "^# Remove old kernels" /usr/sbin/soup | cut -d: -f1`
+        if [ "$LINE" == "" ]; then
+                echo "Cannot dynamically patch soup script for swapped-in Wazuh compatibility."
+                echo "Fix this manually before running soup again or Wazuh may be overwritten."
+                exit
+        fi
+        sed -i "$LINE"i'\/usr\/local\/bin\/wazuh-pre-soup\n' /usr/sbin/soup
+        LINE=""
+        LINE=`grep -n '^# If we need to reboot' /usr/sbin/soup | cut -d: -f1`
+        if [ "$LINE" == "" ]; then
+                echo "Cannot dynamically patch soup script for swapped-in Wazuh compatibility."
+                echo "Fix this manually before running soup again or Wazuh may be overwritten."
+                exit
+        fi
+        sed -i "$LINE"i'\/usr\/local\/bin\/wazuh-post-soup\n' /usr/sbin/soup
+fi
+
