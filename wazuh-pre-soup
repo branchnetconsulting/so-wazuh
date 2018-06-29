@@ -31,13 +31,13 @@ if [ ! -e /etc/ossec-init.conf-so ]; then
 fi
 
 # Stop wazuh and all things that depend on /var/ossec content
-echo "Shutting down Wazuh, ossec_agent, and filebeat if running…"
+echo "Shutting down Wazuh and ossec_agent…"
 /var/ossec/bin/ossec-control stop
 sleep 5
 kill -kill `ps auxw | grep " /var/ossec/bin/ossec-" | grep -v grep | awk '{print $2}'` &> /dev/null
 nsm_sensor_ps-stop --only-ossec-agent
-service filebeat stop
 
+# If ntopng happens to be running, stop it to release pf_ring so soup doesn't get stuck while upgrading pf_ring.
 if [[ `ps auxw | grep "\/usr\/bin\/ntopng" | grep -v grep` ]]; then
         echo "Stopping ntopng to free up pf_ring…"
         service ntopng stop
