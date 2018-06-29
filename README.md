@@ -5,14 +5,19 @@ In the meantime, it is possible to swap the latest Wazuh 3.x Manager in place of
 
 * Sudo to root
   * sudo su -
+
 * Stop OSSEC
   * /var/ossec/bin/ossec-control stop
+
 * Take the three wazuh-* scripts in this repo and place them in /usr/local/bin/ on your SO standalone system, also making them executable by root.
+
 * Run this once to move the legacy OSSEC files to an inactive location (/var/ossec-so/) so Wazuh can be installed cleanly
   * /usr/local/bin/wazuh-post-soup init
+
 * Follow this guide for installing Wazuh from source:
   * https://documentation.wazuh.com/3.x/installation-guide/installing-wazuh-agent/wazuh_agent_sources.html
   * At this point Wazuh is now in /var/ossec and the old OSSEC is in /var/ossec-so so that legacy OSSEC can be temporarily swapped back in place during soup updates and runs of sosetup to avoid disrupting those processes or having Wazuh files overwritten.
+
 * Enable syslog output in Wazuh like SO does with OSSEC
   * /var/ossec/bin/ossec-control enable client-syslog
   * Add this to /var/ossec/etc/ossec.conf directly below the `</global>` line
