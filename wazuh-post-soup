@@ -60,11 +60,6 @@ if [[ `ps auxw | grep "/usr/bin/ossec_agent.tcl" | grep -v grep` ]]; then
         nsm_sensor_ps-stop --only-ossec-agent 2> /dev/null
 fi
 
-if [ -e /etc/init.d/filebeat ]; then
-        echo "Shutting down filebeat (dependent on /var/ossec which is about to be moved)…"
-        service filebeat stop 2> /dev/null
-fi
-
 echo "Moving SO legacy OSSEC files to their alternate locations…"
 mv /var/ossec /var/ossec-so
 mv /etc/ossec-init.conf /etc/ossec-init.conf-so
@@ -84,11 +79,6 @@ if [ "$1" != "init" ]; then
                 nsm_sensor_ps-start --only-ossec-agent
         fi
 
-        if [ -e /etc/init.d/filebeat ]; then
-                echo "Restarting filebeat..."
-                service filebeat start
-        fi
-
         # If ntopng installed then restart it since it was probably shut down by so-pre-update to prevent interference with updates to pfring.
         if [ -e /etc/ntopng/ntopng.start ]; then
                 echo "Restarting ntopng…"
@@ -97,9 +87,7 @@ if [ "$1" != "init" ]; then
 
 fi
 
-
 #
 # Patch soup if replaced with a stock version that does not call wazuh-pre-soup and wazuh-post-soup.
 #
 /usr/local/bin/wazuh-patch-soup
-
