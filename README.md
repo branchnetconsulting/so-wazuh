@@ -67,7 +67,11 @@ Set these values in Wazuh's /var/ossec/etc/ossec.conf to what your old OSSEC set
 * Start Wazuh Manager
    ```/var/ossec/bin/ossec-control restart```
 
-* If you have any OSSEC agents that were reporting to SO's OSSEC server, then unstall OSSEC agent from those systems and replace it with the latest Wazuh agent.  Then re-register them with the Wazuh manager much like you did with OSSEC.
+* If you have any OSSEC agents that were reporting to SO's OSSEC server, then uninstall OSSEC agent from those systems and replace it with the latest Wazuh agent.  Then re-register them with the Wazuh manager much like you did with OSSEC.  
+
+* If instead you want to preserve the old agent registrations, this should probably work:
+  * On SO copy /var/ossec-so/etc/client.keys to /var/ossec/etc/client.keys and restart Wazuh manager with **/var/ossec/bin/ossec-control restart**.  
+  * Also backup each agent's local client.keys file before removing OSSEC and installing Wazuh agent, and then restore each agent's old client.keys to its original location and restart Wazuh agent.
 
 The initial run of **wazuh-post-soup** patched the stock SO **soup** script so that it will run **wazuh-pre-soup** before updating, and **wazuh-post-soup** after updating.  This is so that during thr update process, the legacy OSSEC files are temporarily located back in their original /var/ossec/ location, and after the update  they are moved back to /var/ossec-so/ and Wazuh is moved back into /var/ossec/.  Updated versions of the **soup** script itself should automatically be re-patched by **wazuh-post-soup**.
 
