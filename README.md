@@ -1,3 +1,9 @@
+**OBSOLETE**
+
+Security Onion now includes a fairly recent version of Wazuh manager in place of OSSEC server.
+The following is for historical reference only.
+
+
 **Early replacement of OSSEC Server 2.8 with Wazuh 3.x manager on standalone installs of Security Onion 14.04 or 16.04**
 
 It is already planned for the OSSEC 2.8 package in Security Onion to be completely replaced with a Wazuh 3.x Docker container.
